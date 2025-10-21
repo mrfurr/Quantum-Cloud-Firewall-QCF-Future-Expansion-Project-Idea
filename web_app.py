@@ -1,200 +1,207 @@
 #!/usr/bin/env python3
 """
-QCF Web Service - Full Deployment Version
+QCF Web Service - FIXED Authentication Version
 """
 
 import sys
 import os
-import threading
 import time
-import json
-from datetime import datetime
-from flask import Flask, render_template, jsonify, request
-import pandas as pd
-import numpy as np
+from flask import Flask, render_template, jsonify, request, redirect, make_response
 
-# Add src to path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+app = Flask(__name__)
+app.secret_key = 'qcf_fixed_auth_2024'
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # Prevent caching
 
-from src.firewall.qcf_simulator import QuantumCloudFirewall
-from src.firewall.real_time_monitor import RealTimeNetworkMonitor
-from src.firewall.advanced_rules import AdvancedFirewallRules
-from src.api.qcf_api import QCFAPI
+# Simple session storage
+active_sessions = {}
 
-class QCFWebService:
-    """Full QCF Web Service with Dashboard and API"""
-    
-    def __init__(self):
-        self.app = Flask(__name__)
-        self.qcf = QuantumCloudFirewall()
-        self.monitor = RealTimeNetworkMonitor(self.qcf)
-        self.rules_engine = AdvancedFirewallRules()
-        self.is_running = False
-        self.stats_history = []
-        
-        # Link components
-        self.qcf.monitor = self.monitor
-        self.qcf.rules_engine = self.rules_engine
-        
-        # Setup routes
-        self.setup_routes()
-        
-        # Load and train model
-        self.initialize_system()
-    
-    def initialize_system(self):
-        """Initialize QCF system with training data"""
-        print("🔄 Initializing QCF System...")
-        
-        # Load and preprocess data
-        data_file = 'data/sample_network_traffic.csv'
-        if not os.path.exists(data_file):
-            from data.generate_sample_data import generate_network_traffic_data
-            generate_network_traffic_data()
-            
-        self.qcf.load_network_data(data_file)
-        self.qcf.preprocess_features()
-        accuracy = self.qcf.train_anomaly_detector(method='hybrid')
-        
-        print(f"✅ QCF System Ready! Model Accuracy: {accuracy:.2%}")
-    
-    def setup_routes(self):
-        """Setup web application routes"""
-        
-        @self.app.route('/')
-        def dashboard():
-            return render_template('dashboard.html')
-        
-        @self.app.route('/api/status')
-        def api_status():
-            return jsonify({
-                'status': 'operational',
-                'system': 'Quantum Cloud Firewall',
-                'version': '1.0.0',
-                'uptime': 'Running',
-                'quantum_ready': True,
-                'timestamp': datetime.now().isoformat()
-            })
-        
-        @self.app.route('/api/stats')
-        def api_stats():
-            stats = self.monitor.get_monitoring_stats()
-            # Add to history (keep last 50 entries)
-            self.stats_history.append({
-                'timestamp': datetime.now().isoformat(),
-                **stats
-            })
-            self.stats_history = self.stats_history[-50:]
-            
-            return jsonify(stats)
-        
-        @self.app.route('/api/threats')
-        def api_threats():
-            report = self.qcf.generate_threat_report()
-            rules_report = self.rules_engine.get_security_report()
-            return jsonify({
-                'threat_report': report,
-                'rules_report': rules_report
-            })
-        
-        @self.app.route('/api/analyze', methods=['POST'])
-        def api_analyze():
-            try:
-                data = request.get_json()
-                packet_data = data.get('packet', {})
-                
-                # Analyze packet
-                result = self.qcf.analyze_real_time_traffic(packet_data)
-                
-                # Apply firewall rules
-                rule_actions = self.rules_engine.evaluate_packet(
-                    packet_data, 
-                    result['confidence']
-                )
-                
-                return jsonify({
-                    'analysis': result,
-                    'rule_actions': rule_actions,
-                    'timestamp': datetime.now().isoformat()
-                })
-                
-            except Exception as e:
-                return jsonify({'error': str(e)}), 400
-        
-        @self.app.route('/api/history')
-        def api_history():
-            return jsonify(self.stats_history)
-        
-        @self.app.route('/api/start_monitoring', methods=['POST'])
-        def api_start_monitoring():
-            if not self.is_running:
-                self.monitor.start_monitoring()
-                self.is_running = True
-                return jsonify({'status': 'monitoring_started'})
-            return jsonify({'status': 'already_running'})
-        
-        @self.app.route('/api/stop_monitoring', methods=['POST'])
-        def api_stop_monitoring():
-            if self.is_running:
-                self.monitor.stop_monitoring()
-                self.is_running = False
-                return jsonify({'status': 'monitoring_stopped'})
-            return jsonify({'status': 'not_running'})
-    
-    def run(self, host='0.0.0.0', port=5000, debug=False):
-        """Run the web service"""
-        print(f"🚀 Starting QCF Web Service on http://{host}:{port}")
-        print("📊 Dashboard available at: http://localhost:5000")
-        print("🔗 API endpoints available at: /api/*")
-        print("⏹️  Press Ctrl+C to stop the service")
-        
-        self.app.run(host=host, port=port, debug=debug)
+@app.route('/')
+def index():
+    return redirect('/admin/login')
 
-def simulate_network_traffic(monitor):
-    """Simulate background network traffic for demo"""
-    import random
-    import time
+@app.route('/admin/login')
+def admin_login():
+    # Clear any existing session
+    response = make_response(render_template('admin_login.html'))
+    response.set_cookie('qcf_session', '', expires=0)
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+@app.route('/admin/dashboard')
+def admin_dashboard():
+    session_id = request.cookies.get('qcf_session')
     
-    while True:
-        time.sleep(3)  # Generate traffic every 3 seconds
+    # Check if session is valid
+    if session_id in active_sessions:
+        session_data = active_sessions[session_id]
+        # Check if session is not expired (1 hour)
+        if time.time() - session_data['login_time'] < 3600:
+            response = make_response(render_template('admin_dashboard.html'))
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            return response
+    
+    # Invalid session, redirect to login
+    return redirect('/admin/login')
+
+@app.route('/api/admin/login', methods=['POST'])
+def api_admin_login():
+    try:
+        data = request.get_json()
+        username = data.get('username', '').strip().lower()
+        password = data.get('password', '').strip()
         
-        # Simulate random packets
-        packets = []
-        num_packets = random.randint(1, 5)
+        print(f"Login attempt for user: {username}")
         
-        for _ in range(num_packets):
-            packet = {
-                'timestamp': datetime.now().isoformat(),
-                'src_ip': f"192.168.1.{random.randint(1, 255)}",
-                'dst_ip': f"10.0.0.{random.randint(1, 255)}",
-                'src_port': random.randint(1024, 65535),
-                'dst_port': random.choice([80, 443, 22, 53, 21, 135]),
-                'protocol': random.choice(['TCP', 'UDP']),
-                'packet_size': random.randint(64, 1500),
-                'duration': random.uniform(0.1, 5.0),
-                'flags': random.choice(['ACK', 'SYN', 'FIN'])
+        # Simple authentication
+        valid_users = {
+            'admin': 'insa2024',
+            'insa': 'ethiopia2024'
+        }
+        
+        if username in valid_users and valid_users[username] == password:
+            # Create new session
+            session_id = f"session_{int(time.time())}_{username}"
+            active_sessions[session_id] = {
+                'username': username,
+                'login_time': time.time(),
+                'ip': request.remote_addr
             }
-            packets.append(packet)
-        
-        # Add packets to monitor (simulate capture)
-        for packet in packets:
-            monitor.packet_queue.put(packet)
+            
+            print(f"Login successful for {username}, session created: {session_id}")
+            
+            response = jsonify({
+                'success': True, 
+                'message': 'Login successful',
+                'user': username
+            })
+            response.set_cookie('qcf_session', session_id, max_age=3600, httponly=True)
+            return response
+        else:
+            print(f"Login failed for {username}")
+            return jsonify({
+                'success': False, 
+                'error': 'Invalid username or password'
+            })
+            
+    except Exception as e:
+        print(f"Login error: {e}")
+        return jsonify({'success': False, 'error': 'Server error'})
+
+@app.route('/api/admin/threats')
+def api_admin_threats():
+    session_id = request.cookies.get('qcf_session')
+    if session_id not in active_sessions:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    threats = [
+        {'type': 'Port Scan', 'count': 15, 'severity': 'Medium', 'trend': 'increasing'},
+        {'type': 'DDoS Attack', 'count': 3, 'severity': 'High', 'trend': 'stable'},
+        {'type': 'SQL Injection', 'count': 8, 'severity': 'High', 'trend': 'decreasing'},
+        {'type': 'Malware', 'count': 5, 'severity': 'Critical', 'trend': 'increasing'},
+    ]
+    return jsonify(threats)
+
+@app.route('/api/admin/users')
+def api_admin_users():
+    session_id = request.cookies.get('qcf_session')
+    if session_id not in active_sessions:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    users = [
+        {'username': 'admin', 'role': 'superadmin', 'last_login': '2024-01-15 10:30:00', 'status': 'active'},
+        {'username': 'insa', 'role': 'admin', 'last_login': '2024-01-15 09:15:00', 'status': 'active'},
+    ]
+    return jsonify(users)  
+
+@app.route('/api/admin/logout')
+def api_admin_logout():
+    session_id = request.cookies.get('qcf_session')
+    
+    if session_id in active_sessions:
+        username = active_sessions[session_id]['username']
+        del active_sessions[session_id]
+        print(f"User {username} logged out")
+    
+    # Create redirect response with cookie clearing
+    response = redirect('/admin/login')
+    response.set_cookie('qcf_session', '', expires=0)
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    
+    return response
+
+@app.route('/api/admin/check_session')
+def api_check_session():
+    session_id = request.cookies.get('qcf_session')
+    
+    if session_id in active_sessions:
+        session_data = active_sessions[session_id]
+        if time.time() - session_data['login_time'] < 3600:
+            return jsonify({'valid': True, 'user': session_data['username']})
+    
+    return jsonify({'valid': False})
+
+@app.route('/api/admin/stats')
+def api_admin_stats():
+    session_id = request.cookies.get('qcf_session')
+    
+    # Verify session
+    if session_id not in active_sessions:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    session_data = active_sessions[session_id]
+    if time.time() - session_data['login_time'] >= 3600:
+        return jsonify({'error': 'Session expired'}), 401
+    
+    return jsonify({
+        'total_users': 150,
+        'active_threats': 12,
+        'system_health': 'Excellent',
+        'quantum_accuracy': '98.5%',
+        'packets_analyzed': 24567,
+        'current_user': session_data['username']
+    })
+
+@app.route('/api/admin/logs')
+def api_admin_logs():
+    session_id = request.cookies.get('qcf_session')
+    
+    # Verify session
+    if session_id not in active_sessions:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    logs = [
+        {'timestamp': '2024-01-15 10:30:00', 'level': 'INFO', 'message': 'System initialized'},
+        {'timestamp': '2024-01-15 10:31:00', 'level': 'WARNING', 'message': 'Suspicious activity detected'},
+        {'timestamp': '2024-01-15 10:32:00', 'level': 'INFO', 'message': 'Threat blocked successfully'},
+        {'timestamp': '2024-01-15 10:33:00', 'level': 'INFO', 'message': f"User {active_sessions[session_id]['username']} logged in"},
+    ]
+    return jsonify(logs)
+
+# Clear expired sessions periodically
+def clear_expired_sessions():
+    current_time = time.time()
+    expired_sessions = []
+    
+    for session_id, session_data in active_sessions.items():
+        if current_time - session_data['login_time'] >= 3600:  # 1 hour
+            expired_sessions.append(session_id)
+    
+    for session_id in expired_sessions:
+        del active_sessions[session_id]
+        print(f"Cleared expired session: {session_id}")
 
 if __name__ == "__main__":
-    # Create and run web service
-    web_service = QCFWebService()
+    print("🚀 Starting QCF Web Service - FIXED AUTH")
+    print("📊 Admin Login: http://localhost:5000/admin/login")
+    print("🔐 Username: admin, Password: insa2024")
+    print("🔐 Username: insa, Password: ethiopia2024")
+    print("🔄 Session timeout: 1 hour")
+    print("⏹️  Press Ctrl+C to stop")
+    print("=" * 50)
     
-    # Start background traffic simulation
-    traffic_thread = threading.Thread(
-        target=simulate_network_traffic, 
-        args=(web_service.monitor,),
-        daemon=True
-    )
-    traffic_thread.start()
+    app.run(host='0.0.0.0', port=5000, debug=True) 
     
-    # Start monitoring
-    web_service.monitor.start_monitoring()
-    web_service.is_running = True
-    
-    # Run web service
-    web_service.run()

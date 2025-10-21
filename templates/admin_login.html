@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QCF - Admin Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .login-container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            width: 400px;
+            text-align: center;
+        }
+        
+        .logo {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            background: linear-gradient(45deg, #00ffff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .subtitle {
+            color: #ffffff;
+            opacity: 0.8;
+            margin-bottom: 30px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        
+        label {
+            color: #ffffff;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #00ff88;
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(45deg, #00ffff, #00ff88);
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+        
+        .login-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .language-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+        
+        .lang-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            padding: 10px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.1em;
+        }
+        
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: rgba(40, 40, 60, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 10px 0;
+            min-width: 150px;
+            display: none;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+        
+        .dropdown-menu.show {
+            display: block;
+        }
+        
+        .dropdown-menu button {
+            width: 100%;
+            background: none;
+            border: none;
+            color: #ffffff;
+            padding: 10px 20px;
+            text-align: left;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        
+        .dropdown-menu button:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .error-message {
+            color: #ff4444;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="language-toggle">
+        <button class="lang-btn" onclick="toggleLanguageMenu()">
+            🌎 <span id="currentLang">EN</span>
+        </button>
+        <div class="dropdown-menu" id="languageMenu">
+            <button onclick="changeLanguage('en')">English</button>
+            <button onclick="changeLanguage('am')">አማርኛ</button>
+            <button onclick="changeLanguage('ti')">ትግርኛ</button>
+            <button onclick="changeLanguage('om')">Afaan Oromoo</button>
+        </div>
+    </div>
+    
+    <div class="login-container">
+        <div class="logo">🔒 QCF</div>
+        <div class="subtitle" id="subtitle">Quantum Cloud Firewall - Admin Login</div>
+        
+        <form id="loginForm">
+            <div class="input-group">
+                <label id="usernameLabel">Username</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            
+            <div class="input-group">
+                <label id="passwordLabel">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            
+            <button type="submit" class="login-btn" id="loginBtn">Login</button>
+            <div class="error-message" id="errorMessage">Invalid credentials</div>
+        </form>
+    </div>
+
+    <script>
+    let currentLanguage = 'en';
+    
+    const translations = {
+        en: {
+            subtitle: "Quantum Cloud Firewall - Admin Login",
+            usernameLabel: "Username",
+            passwordLabel: "Password", 
+            loginBtn: "Login",
+            errorMessage: "Invalid username or password"
+        },
+        am: {
+            subtitle: "ኳንተም ደመና የበላይ ግድብ - አስተዳዳሪ መግቢያ",
+            usernameLabel: "የተጠቃሚ ስም",
+            passwordLabel: "የይለፍ ቃል",
+            loginBtn: "ግባ",
+            errorMessage: "የተሳሳተ የተጠቃሚ ስም ወይም የይለፍ ቃል"
+        },
+        ti: {
+            subtitle: "ኳንተም ደመና ሓውሲ ኣገዳሲ - ኣስተዳደሪ እተወ",
+            usernameLabel: "ስም ተጠቃሚ",
+            passwordLabel: "መሕለፊ ቃል",
+            loginBtn: "እተው",
+            errorMessage: "ዘይንጹፍ ስም ተጠቃሚ ወይ መሕለፊ ቃል"
+        },
+        om: {
+            subtitle: "Quantum Cloud Firewall - Seenaa Admin",
+            usernameLabel: "Maqaa Fayyadamaa",
+            passwordLabel: "Jecha Iccitii", 
+            loginBtn: "Seeni",
+            errorMessage: "Maqaa fayyadamaa ykn jecha icciitii dogoggora"
+        }
+    };
+    
+    function toggleLanguageMenu() {
+        document.getElementById('languageMenu').classList.toggle('show');
+    }
+    
+    function changeLanguage(lang) {
+        currentLanguage = lang;
+        updateLanguage();
+        document.getElementById('languageMenu').classList.remove('show');
+        
+        // Update current language display
+        const langDisplay = {
+            'en': 'EN',
+            'am': 'AM', 
+            'ti': 'TI',
+            'om': 'OM'
+        };
+        document.getElementById('currentLang').textContent = langDisplay[lang];
+    }
+    
+    function updateLanguage() {
+        document.getElementById('subtitle').textContent = translations[currentLanguage].subtitle;
+        document.getElementById('usernameLabel').textContent = translations[currentLanguage].usernameLabel;
+        document.getElementById('passwordLabel').textContent = translations[currentLanguage].passwordLabel;
+        document.getElementById('loginBtn').textContent = translations[currentLanguage].loginBtn;
+        document.getElementById('errorMessage').textContent = translations[currentLanguage].errorMessage;
+    }
+    
+    // SIMPLE LOGIN FUNCTION - NO REDIRECT LOOPS
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const errorDiv = document.getElementById('errorMessage');
+    const loginBtn = document.getElementById('loginBtn');
+    
+    // Basic validation
+    if (!username || !password) {
+        errorDiv.textContent = 'Please enter both username and password';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    // Show loading state
+    const originalText = loginBtn.textContent;
+    loginBtn.textContent = 'Logging in...';
+    loginBtn.disabled = true;
+    errorDiv.style.display = 'none';
+    
+    try {
+        console.log('Attempting login for:', username);
+        
+        const response = await fetch('/api/admin/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: username,
+                password: password
+            })
+        });
+        
+        const data = await response.json();
+        console.log('Login response:', data);
+        
+        if (data.success) {
+            console.log('Login successful, redirecting...');
+            // Add small delay to ensure cookie is set
+            setTimeout(() => {
+                window.location.href = '/admin/dashboard';
+            }, 500);
+        } else {
+            // Login failed
+            errorDiv.textContent = data.error || 'Login failed. Please try again.';
+            errorDiv.style.display = 'block';
+            loginBtn.textContent = originalText;
+            loginBtn.disabled = false;
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        errorDiv.textContent = 'Network error. Please check your connection.';
+        errorDiv.style.display = 'block';
+        loginBtn.textContent = originalText;
+        loginBtn.disabled = false;
+    }
+});
+
+// Add session check on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Login page loaded, checking for existing session...');
+    
+    // Clear any cached credentials
+    document.getElementById('username').value = '';
+    document.getElementById('password').value = '';
+    
+    // Check if user is already logged in (shouldn't happen due to cache control)
+    fetch('/api/admin/check_session')
+        .then(response => response.json())
+        .then(data => {
+            if (data.valid) {
+                console.log('Found active session, redirecting...');
+                window.location.href = '/admin/dashboard';
+            }
+        })
+        .catch(error => {
+            console.log('No active session found');
+        });
+});
+    
+    // Initialize language
+    updateLanguage();
+</script> 
+</body>
+</html> 
